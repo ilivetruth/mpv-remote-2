@@ -15,6 +15,11 @@ const routes = [
     component: () => import("../views/Playlist.vue"),
   },
   {
+    name: "folder.filebrowser",
+    path: "/folder/filebrowser",
+    component: () => import("../views/FileBrowser.vue"),
+  },
+  {
     name: "folder.settings",
     path: "/folder/settings",
     component: () => import("../views/Settings.vue"),

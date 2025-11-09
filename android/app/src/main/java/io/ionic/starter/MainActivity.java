@@ -1,4 +1,4 @@
-package com.husudosu.mpvremote;
+package com.ilivetruth.mpvremote2;
 
 import com.getcapacitor.BridgeActivity;
 

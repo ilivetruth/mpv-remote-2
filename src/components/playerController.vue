@@ -1,5 +1,17 @@
 <template>
   <ion-footer>
+    <ion-row class="favoriteRow">
+      <ion-col size="12">
+        <ion-button @click="onFavoriteClicked" fill="clear" size="small" class="favoriteButton">
+          Favorite {{ mediaType }}?
+          <ion-icon
+            slot="end"
+            :icon="isFavorited ? star : starOutline"
+            :class="{ favorited: isFavorited }"
+          ></ion-icon>
+        </ion-button>
+      </ion-col>
+    </ion-row>
     <ion-row class="ion-justify-content-end">
       <ion-col size="12" class="videotitle">
         <div class="playbackTime">
@@ -45,7 +57,7 @@
 </template>
 
 <script>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { useStore } from "vuex";
 import musicControls from "cordova-plugin-music-controls2/www/MusicControls.js";
 import { IonFooter, IonRow, IonCol, IonIcon, IonButton } from "@ionic/vue";
@@ -55,6 +67,8 @@ import {
   stopOutline,
   playSkipBackOutline,
   playSkipForwardOutline,
+  star,
+  starOutline,
 } from "ionicons/icons";
 import { formatTime, seekFlags } from "../tools";
 import { apiInstance } from "../api";
@@ -62,6 +76,40 @@ export default {
   setup() {
     const store = useStore();
     const playerData = computed(() => store.state.simpleapi.playerData);
+    const isFavorited = ref(false);
+
+    // Determine if current media is audio or video
+    const mediaType = computed(() => {
+      // Check if there's a video track
+      if (playerData.value['track-list']) {
+        const hasVideo = playerData.value['track-list'].some(
+          track => track.type === 'video'
+        );
+        return hasVideo ? 'Video' : 'Song';
+      }
+      // Fallback: check by file extension
+      if (playerData.value.filename) {
+        const ext = playerData.value.filename.split('.').pop().toLowerCase();
+        const audioExtensions = ['mp3', 'flac', 'wav', 'ogg', 'aac', 'm4a', 'wma', 'opus'];
+        return audioExtensions.includes(ext) ? 'Song' : 'Video';
+      }
+      return 'Video'; // default
+    });
+
+    // Watch for path changes to update favorite status
+    watch(() => playerData.value.path, async (newPath) => {
+      if (newPath) {
+        try {
+          const response = await apiInstance.get(`/favorites/status/${encodeURIComponent(newPath)}`);
+          isFavorited.value = response.data.favorited === 1;
+        } catch (error) {
+          console.error("Failed to fetch favorite status:", error);
+          isFavorited.value = false;
+        }
+      } else {
+        isFavorited.value = false;
+      }
+    }, { immediate: true });
 
     const onPlayPauseClicked = () => {
       apiInstance.post("/controls/play-pause").then((response) => {
@@ -116,6 +164,28 @@ export default {
         });
     };
 
+    const onFavoriteClicked = async () => {
+      if (!playerData.value.path) return;
+
+      try {
+        const response = await apiInstance.post("/favorites/toggle", {
+          filepath: playerData.value.path,
+        });
+        isFavorited.value = response.data.favorited === 1;
+
+        store.dispatch("app/showToast", {
+          message: isFavorited.value ? "Added to favorites" : "Removed from favorites",
+          duration: 1500,
+        });
+      } catch (error) {
+        console.error("Failed to toggle favorite:", error);
+        store.dispatch("app/showToast", {
+          message: "Failed to update favorite status",
+          duration: 2000,
+        });
+      }
+    };
+
     return {
       playerData,
       onPlayPauseClicked,
@@ -124,11 +194,16 @@ export default {
       onNextClicked,
       onSeek,
       onSkip,
+      onFavoriteClicked,
+      isFavorited,
+      mediaType,
       playOutline,
       pauseOutline,
       stopOutline,
       playSkipBackOutline,
       playSkipForwardOutline,
+      star,
+      starOutline,
       formatTime,
     };
   },
@@ -143,12 +218,45 @@ export default {
 </script>
 
 <style scoped>
+.favoriteRow {
+  text-align: center;
+  padding-top: 5px;
+}
+
+.favoriteButton {
+  color: #fff;
+  font-size: 14px;
+}
+
+.favoriteButton ion-icon {
+  font-size: 24px;
+  margin-left: 5px;
+  stroke-width: 0;
+  position: relative;
+  top: -2px;
+}
+
+.favoriteButton ion-icon.favorited {
+  color: #ffd700;
+}
+
+.videoControls {
+  text-align: center;
+  padding: 0 5px;
+}
 .videoControls ion-col {
-  margin-right: 1px;
+  display: flex;
+  justify-content: center;
+  gap: 2px;
 }
 .videoControls ion-button {
   color: #fff;
-  font-size: 10px;
+  font-size: 20px;
+  min-width: 70px;
+  height: 70px;
+  flex: 1;
+  max-width: 150px;
+  margin: 0;
 }
 
 .videotitle {

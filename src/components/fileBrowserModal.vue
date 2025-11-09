@@ -3,13 +3,23 @@
     <ion-loading :is-open="loading" message="Loading..."> </ion-loading>
     <ion-header>
       <ion-toolbar>
-        <ion-title size="small">{{ titleText }}</ion-title>
+        <ion-title size="small">{{ selectionMode ? `${selectedFiles.length} selected` : titleText }}</ion-title>
         <ion-buttons slot="start">
           <ion-button fill="clear" @click="onCancelClicked">
             <ion-icon :icon="arrowBackSharp" slot="icon-only"></ion-icon>
           </ion-button>
         </ion-buttons>
         <ion-buttons slot="end">
+          <ion-button v-if="selectionMode" fill="clear" @click="exitSelectionMode">
+            Cancel
+          </ion-button>
+          <ion-button
+            :disabled="Object.keys(files).length === 0"
+            @click="onFilterFavoritesClicked"
+            :color="showOnlyFavorites ? 'warning' : ''"
+          >
+            <ion-icon :icon="star" slot="icon-only"></ion-icon>
+          </ion-button>
           <ion-button
             :disabled="Object.keys(files).length === 0"
             @click="onSortByClicked"
@@ -55,7 +65,16 @@
           v-for="(entry, index) in browsableFiles"
           :key="index"
           @click="onEntryClicked(entry)"
+          @touchstart="onTouchStart($event, entry)"
+          @touchend="onTouchEnd"
+          @touchmove="onTouchEnd"
         >
+          <div class="columnCheckbox" v-if="selectionMode && (entry.type === 'video' || entry.type === 'audio')">
+            <ion-checkbox
+              :checked="selectedFiles.includes(entry.fullPath)"
+              @ionChange="onCheckboxChanged(entry)"
+            ></ion-checkbox>
+          </div>
           <div class="columnIcon">
             <ion-icon
               slot="start"
@@ -79,6 +98,9 @@
           </div>
           <div class="column">
             {{ entry.name }}
+          </div>
+          <div class="columnFavorite" v-if="entry.mediaStatus && entry.mediaStatus.favorited">
+            <ion-icon :icon="star" class="favoriteStar"></ion-icon>
           </div>
         </div>
       </ion-list>
@@ -141,7 +163,28 @@
       </ion-fab-button>
     </ion-fab>
 
-    <ion-footer v-if="showOpenFolder">
+    <ion-footer v-if="selectionMode">
+      <div style="display: flex; gap: 5px; padding: 10px;">
+        <ion-button
+          :disabled="selectedFiles.length === 0"
+          @click="onAddToQueueClicked"
+          color="primary"
+          expand="block"
+        >
+          Add to Queue ({{ selectedFiles.length }})
+        </ion-button>
+        <ion-button
+          :disabled="selectedFiles.length === 0"
+          @click="onAddToPlaylistClicked"
+          color="success"
+          expand="block"
+        >
+          Add to Playlist
+        </ion-button>
+      </div>
+    </ion-footer>
+
+    <ion-footer v-else-if="showOpenFolder">
       <ion-button
         :disabled="!files.cwd"
         @click="onOpenDirectoryClicked"
@@ -173,6 +216,7 @@ import {
   IonLoading,
   IonList,
   IonListHeader,
+  IonCheckbox,
   actionSheetController,
   alertController,
   IonInfiniteScroll,
@@ -192,6 +236,7 @@ import {
   journalOutline,
   funnelOutline,
   arrowBackSharp,
+  star,
 } from "ionicons/icons";
 import { formatTime } from "../tools";
 import {
@@ -222,6 +267,14 @@ export default {
     const search = ref("");
     const loading = ref(true);
     const browserContent = ref();
+
+    // Selection mode
+    const selectionMode = ref(false);
+    const selectedFiles = ref([]);
+    let longPressTimer = null;
+
+    // Favorites filter
+    const showOnlyFavorites = ref(false);
 
     const showOpenFolder = ref(props.action === FileBrowserActions.OPENFOLDER);
     const drives = ref([]);
@@ -413,7 +466,199 @@ export default {
       }
     };
 
+    const onTouchStart = (event, entry) => {
+      if (
+        (entry.type === FileBrowserEntryTypes.VIDEO ||
+          entry.type === FileBrowserEntryTypes.AUDIO) &&
+        props.action === FileBrowserActions.PLAY
+      ) {
+        longPressTimer = setTimeout(() => {
+          selectionMode.value = true;
+          if (!selectedFiles.value.includes(entry.fullPath)) {
+            selectedFiles.value.push(entry.fullPath);
+          }
+        }, 500); // 500ms for long press
+      }
+    };
+
+    const onTouchEnd = () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    };
+
+    const onCheckboxChanged = (entry) => {
+      const index = selectedFiles.value.indexOf(entry.fullPath);
+      if (index > -1) {
+        selectedFiles.value.splice(index, 1);
+      } else {
+        selectedFiles.value.push(entry.fullPath);
+      }
+    };
+
+    const exitSelectionMode = () => {
+      selectionMode.value = false;
+      selectedFiles.value = [];
+    };
+
+    const onAddToQueueClicked = async () => {
+      // Add all selected files to current MPV queue
+      for (const filename of selectedFiles.value) {
+        await apiInstance.post("playlist", {
+          filename: filename,
+          flag: "append-play",
+        });
+      }
+
+      store.dispatch("app/showToast", {
+        message: `Added ${selectedFiles.value.length} file(s) to queue`,
+        duration: 2000,
+      });
+
+      exitSelectionMode();
+    };
+
+    const onAddToPlaylistClicked = async () => {
+      // Show action sheet: Add to existing or create new
+      const actionSheet = await actionSheetController.create({
+        header: "Add to Playlist",
+        buttons: [
+          {
+            text: "Add to Existing Playlist",
+            role: "existing",
+          },
+          {
+            text: "Create New Playlist",
+            role: "new",
+          },
+          {
+            text: "Cancel",
+            role: "cancel",
+          },
+        ],
+      });
+
+      await actionSheet.present();
+      const { role } = await actionSheet.onDidDismiss();
+
+      if (role === "existing") {
+        await showExistingPlaylistSelector();
+      } else if (role === "new") {
+        await createNewPlaylistWithFiles();
+      }
+    };
+
+    const showExistingPlaylistSelector = async () => {
+      try {
+        // Fetch saved playlists
+        const response = await apiInstance.get("/saved-playlists");
+        const playlists = response.data;
+
+        if (playlists.length === 0) {
+          store.dispatch("app/showToast", {
+            message: "No saved playlists yet. Create one first!",
+            duration: 2000,
+          });
+          return;
+        }
+
+        const buttons = playlists.map((playlist) => ({
+          text: playlist.name,
+          role: playlist.id.toString(),
+        }));
+        buttons.push({
+          text: "Cancel",
+          role: "cancel",
+        });
+
+        const actionSheet = await actionSheetController.create({
+          header: "Select Playlist",
+          buttons,
+        });
+
+        await actionSheet.present();
+        const { role } = await actionSheet.onDidDismiss();
+
+        if (role !== "cancel" && role !== "backdrop") {
+          // Add files to selected playlist
+          const playlistId = parseInt(role);
+          for (const filePath of selectedFiles.value) {
+            await apiInstance.post(`/saved-playlists/${playlistId}/entries`, {
+              filePath: filePath,
+            });
+          }
+
+          store.dispatch("app/showToast", {
+            message: `Added ${selectedFiles.value.length} file(s) to playlist`,
+            duration: 2000,
+          });
+
+          exitSelectionMode();
+        }
+      } catch (error) {
+        console.error("Failed to load playlists:", error);
+        store.dispatch("app/showToast", {
+          message: "Failed to load playlists",
+          duration: 2000,
+        });
+      }
+    };
+
+    const createNewPlaylistWithFiles = async () => {
+      const alert = await alertController.create({
+        header: "Create Playlist",
+        message: "Enter a name for the new playlist",
+        inputs: [
+          {
+            name: "name",
+            type: "text",
+            placeholder: "Playlist name",
+          },
+        ],
+        buttons: [
+          {
+            text: "Cancel",
+            role: "cancel",
+          },
+          {
+            text: "Create",
+            handler: async (data) => {
+              if (data.name) {
+                try {
+                  await apiInstance.post("/saved-playlists", {
+                    name: data.name,
+                    entries: selectedFiles.value,
+                  });
+
+                  store.dispatch("app/showToast", {
+                    message: `Created "${data.name}" with ${selectedFiles.value.length} file(s)`,
+                    duration: 2000,
+                  });
+
+                  exitSelectionMode();
+                } catch (error) {
+                  console.error("Failed to create playlist:", error);
+                  store.dispatch("app/showToast", {
+                    message: "Failed to create playlist",
+                    duration: 2000,
+                  });
+                }
+              }
+            },
+          },
+        ],
+      });
+      await alert.present();
+    };
+
     const onEntryClicked = async (entry) => {
+      // If in selection mode, toggle selection
+      if (selectionMode.value && (entry.type === FileBrowserEntryTypes.VIDEO || entry.type === FileBrowserEntryTypes.AUDIO)) {
+        onCheckboxChanged(entry);
+        return;
+      }
+
       sortBy.value = FileBrowserSortBy.NAME;
       if (entry.type === "directory") {
         getDirectoryContents(entry.fullPath);
@@ -492,16 +737,81 @@ export default {
       }
     };
 
-    const onSearch = () => {
+    const applyFilters = async () => {
+      // Start with backup data
       files.value = Object.assign({}, filesBak.value);
-      files.value.content = files.value.content.filter(
-        (el) => el.name.toLowerCase().indexOf(search.value.toLowerCase()) > -1
-      );
-      // Enable infinite scroll if needed.
+
+      // Apply search filter
+      if (search.value) {
+        files.value.content = files.value.content.filter(
+          (el) => el.name.toLowerCase().indexOf(search.value.toLowerCase()) > -1
+        );
+      }
+
+      // Apply favorites filter
+      if (showOnlyFavorites.value) {
+        // Fetch favorites from backend for current directory and subdirectories
+        try {
+          const currentDir = files.value.cwd;
+          const response = await apiInstance.get('/favorites', {
+            params: { directory: currentDir }
+          });
+
+          // Create file entries from the favorite data
+          const favoriteEntries = response.data
+            .filter(fav => fav.directory) // Skip entries without directory
+            .map(fav => {
+              const sep = fav.directory.includes('/') ? '/' : '\\';
+              const fullPath = `${fav.directory}${sep}${fav.file_name}`;
+
+              // Determine file type from extension
+              const ext = fav.file_name.split('.').pop().toLowerCase();
+              let fileType = 'video';
+              const audioExtensions = ['mp3', 'flac', 'wav', 'ogg', 'aac', 'm4a', 'wma', 'opus'];
+              if (audioExtensions.includes(ext)) {
+                fileType = 'audio';
+              }
+
+              return {
+                priority: 2,
+                type: fileType,
+                name: fav.file_name,
+                fullPath: fullPath,
+                mediaStatus: {
+                  current_time: fav.current_time,
+                  finished: fav.finished,
+                  favorited: 1
+                }
+              };
+            });
+
+          // Replace content with favorite entries
+          files.value.content = favoriteEntries;
+        } catch (error) {
+          console.error('Failed to fetch favorites:', error);
+          // Fallback to local filtering
+          files.value.content = files.value.content.filter(
+            (el) => el.mediaStatus && el.mediaStatus.favorited
+          );
+        }
+      }
+
+      // Enable infinite scroll if needed
       if (files.value.content.length > INFINITE_SCROLL_STEP)
         infiniteScrollEnabled.value = true;
+      else
+        infiniteScrollEnabled.value = false;
 
       browsableFiles.value = files.value.content.slice(0, INFINITE_SCROLL_STEP);
+    };
+
+    const onSearch = () => {
+      applyFilters();
+    };
+
+    const onFilterFavoritesClicked = () => {
+      showOnlyFavorites.value = !showOnlyFavorites.value;
+      applyFilters();
     };
     const onOpenDirectoryClicked = () => {
       saveLastPath().then(() => modalController.dismiss(files.value.cwd));
@@ -612,7 +922,15 @@ export default {
       onSortByClicked,
       onInfiniteScroll,
       onScrollToTopClicked,
+      onTouchStart,
+      onTouchEnd,
+      onCheckboxChanged,
+      exitSelectionMode,
+      onAddToQueueClicked,
+      onAddToPlaylistClicked,
+      onFilterFavoritesClicked,
       browsableFiles,
+      showOnlyFavorites,
       connectionState: computed(
         () => store.getters["simpleapi/connectionState"]
       ),
@@ -637,6 +955,9 @@ export default {
       arrowBackSharp,
       arrowUp,
       scrollToTopEnabled,
+      selectionMode,
+      selectedFiles,
+      star,
     };
   },
   components: {
@@ -654,6 +975,7 @@ export default {
     IonLoading,
     IonList,
     IonListHeader,
+    IonCheckbox,
     IonInfiniteScroll,
     IonInfiniteScrollContent,
     IonFab,
@@ -695,6 +1017,15 @@ ion-footer ion-button {
   border-bottom: 1px solid rgba(var(--ion-text-color-rgb, 0, 0, 0), 0.3);
 }
 
+.columnCheckbox {
+  padding-left: 15px;
+  padding-right: 10px;
+  flex: 0 0 auto;
+  min-width: 50px;
+  display: flex;
+  align-items: center;
+}
+
 .columnIcon {
   padding-left: 17px;
   padding-right: 30px;
@@ -708,6 +1039,20 @@ ion-footer ion-button {
   flex: 90%;
   min-width: 0px;
   padding-right: 10px;
+}
+
+.columnFavorite {
+  padding-right: 15px;
+  flex: 0 0 auto;
+  min-width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favoriteStar {
+  color: #ffd700;
+  font-size: 20px;
 }
 
 .fileBrowserPath {

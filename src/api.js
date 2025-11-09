@@ -1,7 +1,7 @@
 import axios from "axios";
 import { store } from "./store";
 
-export const MINIMUM_API_VERSION = "1.0.6";
+export const MINIMUM_API_VERSION = "2.1.0";
 
 export let apiInstance = axios.create({
   timeout: 10000,

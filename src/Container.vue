@@ -10,7 +10,7 @@
             @didDismiss="setToastState(false)"
           />
           <ion-list id="inbox-list">
-            <ion-list-header>MPV Remote</ion-list-header>
+            <ion-list-header>MPV Remote 2</ion-list-header>
             <template v-if="servers.length > 0">
               <ion-select
                 class="serverSelect"
@@ -86,6 +86,7 @@ import {
   cogOutline,
   listOutline,
   informationCircleOutline,
+  folderOutline,
 } from "ionicons/icons";
 import { getPlatforms } from "@ionic/vue";
 import { App } from "@capacitor/app";
@@ -127,10 +128,16 @@ export default defineComponent({
         mdIcon: playCircleOutline,
       },
       {
-        title: "Playlist",
+        title: "Playlists",
         url: "/folder/playlist",
         iosIcon: listOutline,
         mdIcon: listOutline,
+      },
+      {
+        title: "File Browser",
+        url: "/folder/filebrowser",
+        iosIcon: folderOutline,
+        mdIcon: folderOutline,
       },
       {
         title: "Settings",

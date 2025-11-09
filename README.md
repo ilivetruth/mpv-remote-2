@@ -8,10 +8,12 @@ MPV Remote is a mobile application for controlling MPV media player remotely run
 
 # Features
 
-- Basic media controls,
+- Basic media controls with larger, easier-to-tap buttons,
 - Open files from your host computer, network storage also supported,
 - Audio & Subtitle track selector,
-- Playlist handling,
+- **Playlist management** - Save, load, and manage multiple playlists. Create playlists from current queue or from file browser,
+- **Favorites** - Star your favorite videos and songs, then filter to show only favorites in file browser,
+- **Multi-select in file browser** - Long-press to select multiple files and add them to queue or playlists at once,
 - Media file info,
 - Media collection handling,
 - Media status time can be stored on host machine. You can continue playback where you left off,

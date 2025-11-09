@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@capacitor-community/sqlite": "^3.3.3",
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^3.4.0",
     "@vue/cli-plugin-babel": "~5.0.0-rc.2",
     "@vue/cli-plugin-e2e-cypress": "~5.0.0-rc.2",
@@ -41,6 +42,7 @@
     "@vue/compiler-sfc": "^3.0.0-0",
     "@vue/test-utils": "^2.0.0-0",
     "chokidar": "^3.5.2",
+    "cordova-res": "^0.15.4",
     "cypress": "^8.3.0",
     "eslint": "^8.7.0",
     "eslint-plugin-vue": "^7.0.0-0",

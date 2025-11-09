@@ -5,14 +5,14 @@
         <ion-buttons slot="start">
           <ion-menu-button color="#fff"></ion-menu-button>
         </ion-buttons>
-        <ion-title>MPV Remote</ion-title>
+        <ion-title>MPV Remote 2</ion-title>
       </ion-toolbar>
     </ion-header>
 
     <ion-content :fullscreen="true">
       <ion-header collapse="condense">
         <ion-toolbar>
-          <ion-title size="large">MPV Remote</ion-title>
+          <ion-title size="large">MPV Remote 2</ion-title>
         </ion-toolbar>
       </ion-header>
       <ion-list>
@@ -24,8 +24,8 @@
         </ion-item>
         <ion-item lines="full">
           <ion-label class="ion-text-wrap">
-            <h2>Made by</h2>
-            <p>Ferenc Nánási</p>
+            <h2>MPV Remote 2 Developer</h2>
+            <p>Earl Brittain</p>
           </ion-label>
         </ion-item>
         <ion-item lines="full">
@@ -37,7 +37,13 @@
         <ion-item lines="full">
           <ion-label class="ion-text-wrap">
             <h2>API version</h2>
-            <p>{{ MPVInfo.mpvremoteVersion }}</p>
+            <p>2.1.0</p>
+          </ion-label>
+        </ion-item>
+        <ion-item lines="full">
+          <ion-label class="ion-text-wrap">
+            <h2>Based On</h2>
+            <p>MPV Remote v1.0.10 (API v{{ MPVInfo.mpvremoteVersion }}) by Ferenc Nánási</p>
           </ion-label>
         </ion-item>
       </ion-list>

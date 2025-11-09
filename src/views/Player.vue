@@ -269,6 +269,14 @@ export default {
         header: "Computer actions",
         buttons: [
           {
+            role: "disable-display",
+            text: "Turn Off Display",
+          },
+          {
+            role: "enable-display",
+            text: "Turn On Display",
+          },
+          {
             role: "shutdown",
             text: "Shutdown",
           },

@@ -1,6 +1,6 @@
 {
-  "appId": "com.husudosu.mpvremote",
-  "appName": "MPV Remote",
+  "appId": "com.ilivetruth.mpvremote2",
+  "appName": "MPV Remote 2",
   "webDir": "dist",
   "bundledWebRuntime": false
 }
