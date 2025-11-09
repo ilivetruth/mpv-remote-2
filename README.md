@@ -4,7 +4,7 @@
 <img src="images/icon.png" >
 </p>
 
-MPV Remote 2, is an enhanced and updated mobile application for controlling MPV media player remotely running on your PC, based on the original [MPV Remote](https://github.com/husudosu/mpv-remote-node](https://github.com/husudosu/mpv-remote-app), by     [@husudosu](https://github.com/husudosu/](https://github.com/husudosu/mpv-remote-app), Ferenc Nánási 
+MPV Remote 2, is an enhanced and updated mobile application for controlling MPV media player remotely running on your PC, based on the original [MPV Remote](https://github.com/husudosu/mpv-remote-node) by [@husudosu](https://github.com/husudosu/), Ferenc Nánási 
 
 # New Features
 
