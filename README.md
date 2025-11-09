@@ -12,7 +12,8 @@ MPV Remote 2, is an enhanced and updated mobile application for controlling MPV 
 - **Favorites** - Star your favorite videos and songs, then filter to show only favorites in file browser,
 - **Multi-select in file browser** - Long-press to select multiple files and add them to queue or playlists at once,
 - **Enlarged Playback Buttons** - Increased size of the icons to use all available width,
-- **Added File manager Page** - to main drawer for easier access. 
+- **Added File manager Page** - to main drawer for easier access.
+- **Display Control** - Turn off/on monitor/display on wayland, x11 and windows.
 
 
 # How to use it
